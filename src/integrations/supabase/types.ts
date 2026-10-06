@@ -14,7 +14,272 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      answer_keys: {
+        Row: {
+          correct: Json | null
+          question_id: string
+        }
+        Insert: {
+          correct?: Json | null
+          question_id: string
+        }
+        Update: {
+          correct?: Json | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_keys_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      answers: {
+        Row: {
+          answer: Json | null
+          id: string
+          is_correct: boolean | null
+          question_id: string
+          score_awarded: number | null
+          submission_id: string
+        }
+        Insert: {
+          answer?: Json | null
+          id?: string
+          is_correct?: boolean | null
+          question_id: string
+          score_awarded?: number | null
+          submission_id: string
+        }
+        Update: {
+          answer?: Json | null
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string
+          score_awarded?: number | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          attempt_limit: number
+          created_at: string
+          description: string | null
+          id: string
+          passing_score: number
+          room_id: string | null
+          status: string
+          time_limit: number | null
+          title: string
+          type: string
+        }
+        Insert: {
+          attempt_limit?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          passing_score?: number
+          room_id?: string | null
+          status?: string
+          time_limit?: number | null
+          title: string
+          type?: string
+        }
+        Update: {
+          attempt_limit?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          passing_score?: number
+          room_id?: string | null
+          status?: string
+          time_limit?: number | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participants: {
+        Row: {
+          class_name: string
+          entered_at: string
+          entry_date: string
+          id: string
+          name: string
+          room_id: string
+        }
+        Insert: {
+          class_name: string
+          entered_at?: string
+          entry_date?: string
+          id?: string
+          name: string
+          room_id: string
+        }
+        Update: {
+          class_name?: string
+          entered_at?: string
+          entry_date?: string
+          id?: string
+          name?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          assessment_id: string
+          id: string
+          options: Json
+          points: number
+          position: number
+          prompt: string
+          type: string
+        }
+        Insert: {
+          assessment_id: string
+          id?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt: string
+          type: string
+        }
+        Update: {
+          assessment_id?: string
+          id?: string
+          options?: Json
+          points?: number
+          position?: number
+          prompt?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          class_name: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          status: string
+        }
+        Insert: {
+          class_name?: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          status?: string
+        }
+        Update: {
+          class_name?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      submissions: {
+        Row: {
+          assessment_id: string
+          id: string
+          max_score: number | null
+          needs_review: boolean
+          participant_id: string
+          score: number | null
+          started_at: string
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          assessment_id: string
+          id?: string
+          max_score?: number | null
+          needs_review?: boolean
+          participant_id: string
+          score?: number | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          id?: string
+          max_score?: number | null
+          needs_review?: boolean
+          participant_id?: string
+          score?: number | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
