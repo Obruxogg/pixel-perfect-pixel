@@ -239,6 +239,86 @@ export const deleteAssessment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const unlinkAssessmentFromRoom = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ id: uuid }).parse(i))
+  .handler(async ({ data }) => {
+    const s = await db();
+    await s.from("assessments").update({ room_id: null }).eq("id", data.id);
+    return { ok: true };
+  });
+
+export const linkAssessmentToRoom = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ id: uuid, roomId: uuid }).parse(i))
+  .handler(async ({ data }) => {
+    const s = await db();
+    await s.from("assessments").update({ room_id: data.roomId, status: "disponivel" }).eq("id", data.id);
+    return { ok: true };
+  });
+
+export const cloneAssessmentToRoom = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ id: uuid, roomId: uuid }).parse(i))
+  .handler(async ({ data }) => {
+    const s = await db();
+    const { data: a } = await s.from("assessments").select("*").eq("id", data.id).single();
+    if (!a) throw new Error("Avaliação não encontrada");
+    const { id: _id, created_at: _c, ...rest } = a;
+    const { data: na } = await s.from("assessments").insert({ ...rest, room_id: data.roomId, status: "disponivel" }).select("id").single();
+    const { data: qs } = await s.from("questions").select("*").eq("assessment_id", a.id);
+    for (const q of qs ?? []) {
+      const { data: nq } = await s.from("questions").insert({ assessment_id: na!.id, position: q.position, type: q.type, prompt: q.prompt, points: q.points, options: q.options }).select("id").single();
+      const { data: k } = await s.from("answer_keys").select("correct").eq("question_id", q.id).maybeSingle();
+      if (k && nq) await s.from("answer_keys").insert({ question_id: nq.id, correct: k.correct });
+    }
+    return { id: na!.id };
+  });
+
+export const createAssessmentFromBank = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({
+    title: z.string().min(1),
+    type: z.enum(["prova", "atividade", "questionario", "diagnostico"]),
+    roomId: uuid.optional(),
+    questions: z.array(z.object({
+      type: z.enum(["unica", "multipla", "vf", "curta", "longa", "escala"]),
+      prompt: z.string(),
+      points: z.number(),
+      options: z.array(z.object({ id: z.string(), text: z.string() })),
+      correct: z.union([z.string(), z.array(z.string()), z.null()]),
+    })),
+  }).parse(i))
+  .handler(async ({ data }) => {
+    const s = await db();
+    const { data: na, error } = await s.from("assessments").insert({
+      title: data.title,
+      type: data.type,
+      status: "rascunho",
+      room_id: data.roomId || null,
+      passing_score: data.type === "questionario" ? 0 : 6,
+    }).select("id").single();
+    if (error) throw error;
+
+    for (let i = 0; i < data.questions.length; i++) {
+      const q = data.questions[i];
+      const qId = crypto.randomUUID();
+      await s.from("questions").insert({
+        id: qId,
+        assessment_id: na.id,
+        position: i + 1,
+        type: q.type,
+        prompt: q.prompt,
+        points: q.points,
+        options: q.options,
+      });
+      if (q.correct != null) {
+        await s.from("answer_keys").insert({
+          question_id: qId,
+          correct: q.correct,
+        });
+      }
+    }
+
+    return { id: na.id };
+  });
+
 export const getResults = createServerFn({ method: "GET" }).handler(async () => {
   const s = await db();
   const [{ data: subs }, { data: as }, { data: rooms }] = await Promise.all([

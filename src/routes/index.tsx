@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { findRoom } from "@/lib/student.functions";
@@ -47,7 +47,6 @@ function Enter() {
         {error && <p role="alert" className="mt-4 text-accent font-semibold">{error}</p>}
         <Button type="submit" variant="chalk" disabled={busy} className="w-full mt-6 h-14 text-lg">{busy ? "Verificando…" : "Entrar"}</Button>
       </form>
-      <Link to="/admin" className="mt-16 text-xs text-board-muted hover:text-board-foreground">Área do professor</Link>
     </div>
   );
 }

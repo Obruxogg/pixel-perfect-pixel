@@ -5,11 +5,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getSubmission, gradeManual } from "@/lib/admin.functions";
 import { PageHeader, StatusPill, fmtTime, fmtDate } from "@/components/AdminShell";
-import { TYPE_LABEL, QTYPE_LABEL, toTen } from "@/lib/grading";
+import { TYPE_LABEL, QTYPE_LABEL, toTen, textSimilarity } from "@/lib/grading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle, AlertCircle, ArrowLeft, Save, User, Calendar, Award } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ArrowLeft, Save, User, Calendar, Award, Sparkles, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/admin/resultados/$id")({
   head: () => ({
@@ -221,8 +221,44 @@ function SubmissionDetail() {
                 )}
 
                 {isOpen && (
-                  <div className="p-4 rounded-lg bg-muted/30 border text-sm whitespace-pre-wrap">
-                    {userAns ? String(userAns) : <span className="text-muted-foreground italic">Em branco</span>}
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-lg bg-muted/30 border text-sm whitespace-pre-wrap">
+                      {userAns ? String(userAns) : <span className="text-muted-foreground italic">Em branco</span>}
+                    </div>
+
+                    {/* Show expected answer for short-answer questions with a defined key */}
+                    {question.type === "curta" && correct && String(correct).trim() && (
+                      <div className="space-y-2">
+                        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 mb-1 flex items-center gap-1">
+                            <CheckCircle2 className="size-3.5" /> Resposta Esperada (Gabarito):
+                          </p>
+                          <p className="text-emerald-900 font-medium">{String(correct)}</p>
+                        </div>
+
+                        {userAns && (
+                          (() => {
+                            const sim = textSimilarity(String(correct), String(userAns));
+                            const pct = Math.round(sim * 100);
+                            const color =
+                              pct >= 75 ? "bg-emerald-100 text-emerald-700 border-emerald-300" :
+                              pct >= 50 ? "bg-amber-100 text-amber-700 border-amber-300" :
+                              "bg-red-100 text-red-700 border-red-300";
+                            const label =
+                              pct >= 75 ? "Alta similaridade — corrigido automaticamente" :
+                              pct >= 50 ? "Similaridade moderada — parcialmente correto" :
+                              pct >= 30 ? "Baixa similaridade — revisão recomendada" :
+                              "Muito diferente — revisão necessária";
+                            return (
+                              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${color}`}>
+                                <Zap className="size-3.5" />
+                                <span>Similaridade: {pct}% — {label}</span>
+                              </div>
+                            );
+                          })()
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

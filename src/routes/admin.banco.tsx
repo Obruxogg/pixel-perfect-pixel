@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { parseQuestionsFromText, extractTextFromDocx, type ParsedQuestion } from "@/lib/docx-parser";
+import { createAssessmentFromBank, listRooms } from "@/lib/admin.functions";
 import { PageHeader } from "@/components/AdminShell";
 import { QTYPE_LABEL, type QType } from "@/lib/grading";
 import { Button } from "@/components/ui/button";
@@ -10,7 +13,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Search, UploadCloud, Copy, Trash2, Library, CheckCircle2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  UploadCloud,
+  Copy,
+  Trash2,
+  Library,
+  CheckCircle2,
+  Download,
+  FileCheck,
+  CheckSquare,
+} from "lucide-react";
 
 export const Route = createFileRoute("/admin/banco")({
   head: () => ({
@@ -31,7 +45,7 @@ const DEFAULT_BANK_QUESTIONS: ParsedQuestion[] = [
     id: "q-bank-1",
     type: "unica",
     prompt: "No Microsoft Excel, qual caractere deve obrigatoriamente iniciar qualquer fórmula de cálculo?",
-    points: 2,
+    points: 2.5,
     options: [
       { id: "a", text: "O sinal de mais (+)" },
       { id: "b", text: "O sinal de igual (=)" },
@@ -44,7 +58,7 @@ const DEFAULT_BANK_QUESTIONS: ParsedQuestion[] = [
     id: "q-bank-2",
     type: "multipla",
     prompt: "Selecione todos os formatos de arquivos de imagem suportados na web nativamente:",
-    points: 2,
+    points: 2.5,
     options: [
       { id: "a", text: "PNG" },
       { id: "b", text: "JPEG / JPG" },
@@ -57,7 +71,7 @@ const DEFAULT_BANK_QUESTIONS: ParsedQuestion[] = [
     id: "q-bank-3",
     type: "vf",
     prompt: "A memória RAM é um tipo de memória não-volátil que mantém seus dados salvos após o computador ser desligado.",
-    points: 2,
+    points: 2.5,
     options: [
       { id: "v", text: "Verdadeiro" },
       { id: "f", text: "Falso" },
@@ -68,7 +82,7 @@ const DEFAULT_BANK_QUESTIONS: ParsedQuestion[] = [
     id: "q-bank-4",
     type: "longa",
     prompt: "Explique o conceito de Nuvem (Cloud Computing) e cite duas vantagens para empresas ou estudantes.",
-    points: 3,
+    points: 2.5,
     options: [],
     correct: null,
   },
@@ -76,10 +90,20 @@ const DEFAULT_BANK_QUESTIONS: ParsedQuestion[] = [
 
 function QuestionBank() {
   const [questions, setQuestions] = useState<ParsedQuestion[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("todos");
+
+  // Modals
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [createTestOpen, setCreateTestOpen] = useState(false);
+
+  const createFromBankFn = useServerFn(createAssessmentFromBank);
+  const roomsFn = useServerFn(listRooms);
+  const { data: rooms } = useQuery({ queryKey: ["rooms"], queryFn: () => roomsFn() });
+  const qc = useQueryClient();
+  const nav = useNavigate();
 
   useEffect(() => {
     const saved = localStorage.getItem(BANK_STORAGE_KEY);
@@ -112,6 +136,32 @@ function QuestionBank() {
     toast.success("Questão copiada para a área de transferência!");
   }
 
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  }
+
+  function selectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((q) => q.id)));
+    }
+  }
+
+  function exportBankJson() {
+    const blob = new Blob([JSON.stringify(questions, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `banco_de_questoes_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Banco de questões exportado!");
+  }
+
   const filtered = questions.filter((q) => {
     if (search && !q.prompt.toLowerCase().includes(search.toLowerCase())) return false;
     if (typeFilter !== "todos" && q.type !== typeFilter) return false;
@@ -119,103 +169,141 @@ function QuestionBank() {
   });
 
   return (
-    <div className="max-w-5xl pb-16">
+    <div className="max-w-5xl pb-24">
       <PageHeader
         title="Banco de Questões"
-        subtitle="Armazene, reutilize e importe questões para suas provas e atividades."
+        subtitle="Armazene, reutilize, filtre e importe questões modulares para suas avaliações."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={exportBankJson} title="Exportar Banco em JSON">
+              <Download className="size-4 mr-1.5" /> Exportar JSON
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               <UploadCloud className="size-4 mr-1.5" /> Importar DOCX / Texto
             </Button>
-            <Button variant="chalk" onClick={() => setModalOpen(true)}>
+            <Button variant="chalk" size="sm" onClick={() => setModalOpen(true)}>
               <Plus className="size-4 mr-1.5" /> Nova Questão
             </Button>
           </div>
         }
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="relative flex-1 min-w-64">
-          <Search className="size-4 absolute left-3 top-3 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por palavras-chave no enunciado…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {/* Filters & Multi-select Bar */}
+      <div className="paper-card p-4 mb-6 space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-64">
+            <Search className="size-4 absolute left-3 top-3 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por palavras-chave no enunciado…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Tipo de questão" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os tipos</SelectItem>
+              <SelectItem value="unica">Múltipla escolha</SelectItem>
+              <SelectItem value="multipla">Caixas de seleção</SelectItem>
+              <SelectItem value="vf">Verdadeiro / Falso</SelectItem>
+              <SelectItem value="curta">Resposta curta</SelectItem>
+              <SelectItem value="longa">Resposta longa</SelectItem>
+              <SelectItem value="escala">Escala 1–5</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Tipo de questão" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os tipos</SelectItem>
-            <SelectItem value="unica">Múltipla escolha</SelectItem>
-            <SelectItem value="multipla">Caixas de seleção</SelectItem>
-            <SelectItem value="vf">Verdadeiro / Falso</SelectItem>
-            <SelectItem value="curta">Resposta curta</SelectItem>
-            <SelectItem value="longa">Resposta longa</SelectItem>
-            <SelectItem value="escala">Escala 1–5</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+          <button
+            type="button"
+            onClick={selectAll}
+            className="flex items-center gap-1.5 font-semibold text-foreground hover:underline"
+          >
+            <CheckSquare className="size-3.5" />
+            {selectedIds.size === filtered.length && filtered.length > 0
+              ? "Desmarcar todas"
+              : `Selecionar todas (${filtered.length})`}
+          </button>
+
+          <span>
+            {selectedIds.size} de {questions.length} questões selecionadas
+          </span>
+        </div>
       </div>
 
       {/* Question List */}
       <div className="space-y-4">
-        {filtered.map((q, idx) => (
-          <div key={q.id} className="paper-card p-5 hover:ring-1 hover:ring-accent transition">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold bg-muted size-6 rounded-full flex items-center justify-center">
-                  {idx + 1}
-                </span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                  {QTYPE_LABEL[q.type as QType] ?? q.type}
-                </span>
+        {filtered.map((q, idx) => {
+          const isSelected = selectedIds.has(q.id);
+          return (
+            <div
+              key={q.id}
+              className={`paper-card p-5 transition border-l-4 ${
+                isSelected ? "border-l-primary bg-primary/5 ring-1 ring-primary" : "border-l-muted hover:border-l-accent"
+              }`}
+            >
+              <div className="flex items-center justify-between pb-3 mb-3 border-b">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(q.id)}
+                    className="size-4 accent-primary cursor-pointer"
+                  />
+                  <span className="font-mono text-xs font-bold bg-muted size-6 rounded-full flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                    {QTYPE_LABEL[q.type as QType] ?? q.type}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-semibold">{q.points} pts</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="size-8" title="Copiar texto" onClick={() => handleCopy(q)}>
+                    <Copy className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-destructive hover:bg-destructive/10"
+                    title="Excluir do banco"
+                    onClick={() => handleDelete(q.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="size-8" title="Copiar texto" onClick={() => handleCopy(q)}>
-                  <Copy className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-destructive hover:bg-destructive/10"
-                  title="Excluir"
-                  onClick={() => handleDelete(q.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
+
+              <p className="font-semibold text-base whitespace-pre-wrap">{q.prompt}</p>
+
+              {q.options.length > 0 && (
+                <div className="grid sm:grid-cols-2 gap-2 mt-3 text-xs text-muted-foreground">
+                  {q.options.map((opt) => {
+                    const isCorrect =
+                      Array.isArray(q.correct) ? q.correct.includes(opt.id) : String(q.correct) === opt.id;
+                    return (
+                      <div
+                        key={opt.id}
+                        className={`p-2 rounded border flex items-center gap-2 ${
+                          isCorrect ? "border-success bg-success/10 text-success font-medium" : "border-border"
+                        }`}
+                      >
+                        <span className="font-mono font-bold">{opt.id.toUpperCase()})</span>
+                        <span>{opt.text}</span>
+                        {isCorrect && <CheckCircle2 className="size-3.5 ml-auto text-success shrink-0" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-
-            <p className="font-semibold text-base whitespace-pre-wrap">{q.prompt}</p>
-
-            {q.options.length > 0 && (
-              <div className="grid sm:grid-cols-2 gap-2 mt-3 text-xs text-muted-foreground">
-                {q.options.map((opt) => {
-                  const isCorrect =
-                    Array.isArray(q.correct) ? q.correct.includes(opt.id) : String(q.correct) === opt.id;
-                  return (
-                    <div
-                      key={opt.id}
-                      className={`p-2 rounded border flex items-center gap-2 ${
-                        isCorrect ? "border-success bg-success/10 text-success font-medium" : "border-border"
-                      }`}
-                    >
-                      <span className="font-mono font-bold">{opt.id.toUpperCase()})</span>
-                      <span>{opt.text}</span>
-                      {isCorrect && <CheckCircle2 className="size-3.5 ml-auto text-success shrink-0" />}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {!filtered.length && (
           <div className="paper-card p-12 text-center text-muted-foreground">
@@ -225,6 +313,25 @@ function QuestionBank() {
           </div>
         )}
       </div>
+
+      {/* Floating Action Bar for Selected Questions */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 bg-background/95 backdrop-blur border-t px-6 py-3 flex items-center justify-between max-w-5xl mx-auto shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <div className="text-sm">
+            <span className="font-bold text-primary">{selectedIds.size}</span>{" "}
+            {selectedIds.size === 1 ? "questão selecionada" : "questões selecionadas"}
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+              Limpar Seleção
+            </Button>
+            <Button variant="chalk" size="sm" onClick={() => setCreateTestOpen(true)}>
+              <FileCheck className="size-4 mr-1.5" /> Criar Avaliação com Selecionadas
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* New Question Modal */}
       <NewBankQuestionDialog
@@ -245,7 +352,141 @@ function QuestionBank() {
           toast.success(`${imported.length} questões importadas para o banco!`);
         }}
       />
+
+      {/* Create Assessment with Selected Questions Modal */}
+      <CreateAssessmentFromSelectionDialog
+        open={createTestOpen}
+        onOpenChange={setCreateTestOpen}
+        selectedQuestions={questions.filter((q) => selectedIds.has(q.id))}
+        rooms={rooms ?? []}
+        onSubmit={async (data) => {
+          try {
+            const res = await createFromBankFn({
+              data: {
+                title: data.title,
+                type: data.type,
+                roomId: data.roomId,
+                questions: data.questions,
+              },
+            });
+            qc.invalidateQueries({ queryKey: ["assessments"] });
+            toast.success("Avaliação criada com sucesso!");
+            nav({ to: "/admin/avaliacoes/$id", params: { id: res.id } });
+          } catch {
+            toast.error("Erro ao criar avaliação.");
+          }
+        }}
+      />
     </div>
+  );
+}
+
+function CreateAssessmentFromSelectionDialog({
+  open,
+  onOpenChange,
+  selectedQuestions,
+  rooms,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  selectedQuestions: ParsedQuestion[];
+  rooms: { id: string; name: string; code: string }[];
+  onSubmit: (data: {
+    title: string;
+    type: "prova" | "atividade" | "questionario" | "diagnostico";
+    roomId?: string;
+    questions: ParsedQuestion[];
+  }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState<"prova" | "atividade" | "questionario" | "diagnostico">("prova");
+  const [roomId, setRoomId] = useState<string>("none");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(`Avaliação com ${selectedQuestions.length} questões`);
+      setRoomId("none");
+      setType("prova");
+    }
+  }, [open, selectedQuestions]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return toast.error("Informe o título.");
+    setBusy(true);
+    await onSubmit({
+      title: title.trim(),
+      type,
+      roomId: roomId === "none" ? undefined : roomId,
+      questions: selectedQuestions,
+    });
+    setBusy(false);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileCheck className="size-5 text-primary" /> Criar Avaliação com {selectedQuestions.length} Questões
+          </DialogTitle>
+          <DialogDescription>
+            Defina o título e o tipo para gerar a nova avaliação a partir das questões selecionadas.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 my-2">
+          <div className="space-y-1.5">
+            <Label>Título da Avaliação</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Tipo</Label>
+            <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="prova">Prova</SelectItem>
+                <SelectItem value="atividade">Atividade</SelectItem>
+                <SelectItem value="questionario">Questionário</SelectItem>
+                <SelectItem value="diagnostico">Diagnóstico</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Vincular a uma Sala (Opcional)</Label>
+            <Select value={roomId} onValueChange={setRoomId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma sala (Salvar no Acervo)</SelectItem>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name} ({r.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="chalk" disabled={busy}>
+              {busy ? "Criando…" : "Gerar e Abrir Editor"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -280,7 +521,7 @@ function NewBankQuestionDialog({
       id: crypto.randomUUID(),
       type,
       prompt: prompt.trim(),
-      points: 2,
+      points: 2.5,
       options: finalOptions,
       correct: ["unica", "multipla", "vf"].includes(type) ? correct : null,
     });
@@ -396,6 +637,23 @@ function ImportBankDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.name.endsWith(".json")) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          if (Array.isArray(parsed)) {
+            onImport(parsed);
+            onOpenChange(false);
+          }
+        } catch {
+          toast.error("JSON inválido.");
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
     if (file.name.endsWith(".docx")) {
       try {
         const buffer = await file.arrayBuffer();
@@ -418,14 +676,14 @@ function ImportBankDialog({
         <DialogHeader>
           <DialogTitle>Importar para o Banco de Questões</DialogTitle>
           <DialogDescription>
-            Envie um arquivo Word (.docx) ou cole o texto com as questões para adicionar ao seu repositório.
+            Envie um arquivo Word (.docx), JSON de backup ou cole o texto com as questões para adicionar ao seu repositório.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 my-2">
           <div>
-            <Label className="font-semibold mb-1.5 block">Arquivo .docx ou .txt</Label>
-            <Input type="file" accept=".docx,.txt" onChange={handleFileUpload} />
+            <Label className="font-semibold mb-1.5 block">Arquivo .docx, .json ou .txt</Label>
+            <Input type="file" accept=".docx,.json,.txt,.doc" onChange={handleFileUpload} />
           </div>
 
           <div className="space-y-1.5">
