@@ -349,3 +349,314 @@ export const getAnalysis = createServerFn({ method: "POST" })
       }),
     };
   });
+
+export const generateDemoData = createServerFn({ method: "POST" }).handler(async () => {
+  const s = await db();
+
+  // 1. Create Room INFO26
+  const { data: roomInfo } = await s.from("rooms").insert({
+    name: "Informática — Terça-feira",
+    class_name: "Informática",
+    description: "Laboratório 2 - Período da tarde",
+    code: "INFO26",
+    status: "ativa",
+  }).select("id").single();
+
+  const infoId = roomInfo?.id;
+
+  // 2. Create Room EXCEL7
+  const { data: roomExcel } = await s.from("rooms").insert({
+    name: "Turma de Excel Básico",
+    class_name: "Excel",
+    description: "Módulo Planilhas",
+    code: "EXCEL7",
+    status: "ativa",
+  }).select("id").single();
+
+  // 3. Create Room WORD3
+  await s.from("rooms").insert({
+    name: "Turma de Word e Redação",
+    class_name: "Word",
+    description: "Módulo Textos",
+    code: "WORD3",
+    status: "ativa",
+  });
+
+  if (!infoId) return { ok: true };
+
+  // 4. Create Assessment: Prova de Excel
+  const { data: aProva } = await s.from("assessments").insert({
+    title: "Prova de Excel",
+    description: "Avaliação bimestral de fórmulas, gráficos e funções básicas no Excel.",
+    type: "prova",
+    status: "disponivel",
+    room_id: infoId,
+    passing_score: 6,
+    attempt_limit: 1,
+    time_limit: 45,
+  }).select("id").single();
+
+  if (aProva) {
+    const q1 = crypto.randomUUID();
+    const q2 = crypto.randomUUID();
+    const q3 = crypto.randomUUID();
+    const q4 = crypto.randomUUID();
+
+    await s.from("questions").insert([
+      {
+        id: q1,
+        assessment_id: aProva.id,
+        position: 1,
+        type: "unica",
+        prompt: "Qual fórmula é utilizada para calcular a soma de um intervalo de células de A1 até A10?",
+        points: 2.5,
+        options: [
+          { id: "a", text: "=TOTAL(A1:A10)" },
+          { id: "b", text: "=SOMA(A1:A10)" },
+          { id: "c", text: "=CALCULAR(A1..A10)" },
+          { id: "d", text: "=ADD(A1:A10)" },
+        ],
+      },
+      {
+        id: q2,
+        assessment_id: aProva.id,
+        position: 2,
+        type: "multipla",
+        prompt: "Quais das seguintes opções são tipos válidos de gráficos no Excel? (Selecione todos os corretos)",
+        points: 2.5,
+        options: [
+          { id: "a", text: "Gráfico de Colunas" },
+          { id: "b", text: "Gráfico de Pizza" },
+          { id: "c", text: "Gráfico de Linhas" },
+          { id: "d", text: "Gráfico de Satélite" },
+        ],
+      },
+      {
+        id: q3,
+        assessment_id: aProva.id,
+        position: 3,
+        type: "vf",
+        prompt: "No Excel, toda fórmula matemática obrigatóriamente deve começar com o sinal de igual (=).",
+        points: 2.5,
+        options: [
+          { id: "v", text: "Verdadeiro" },
+          { id: "f", text: "Falso" },
+        ],
+      },
+      {
+        id: q4,
+        assessment_id: aProva.id,
+        position: 4,
+        type: "longa",
+        prompt: "Explique a diferença prática entre as funções =MÉDIA() e =SOMA() e dê um exemplo de uso de cada uma.",
+        points: 2.5,
+        options: [],
+      },
+    ]);
+
+    await s.from("answer_keys").insert([
+      { question_id: q1, correct: "b" },
+      { question_id: q2, correct: ["a", "b", "c"] },
+      { question_id: q3, correct: "v" },
+      { question_id: q4, correct: null },
+    ]);
+  }
+
+  // 5. Create Assessment: Pesquisa sobre as Aulas (Questionário)
+  const { data: aSurvey } = await s.from("assessments").insert({
+    title: "Pesquisa sobre as próximas aulas",
+    description: "Queremos saber sua opinião e preferências para os próximos conteúdos.",
+    type: "questionario",
+    status: "disponivel",
+    room_id: infoId,
+    passing_score: 0,
+    attempt_limit: 0,
+    time_limit: null,
+  }).select("id").single();
+
+  if (aSurvey) {
+    const sq1 = crypto.randomUUID();
+    const sq2 = crypto.randomUUID();
+    const sq3 = crypto.randomUUID();
+    const sq4 = crypto.randomUUID();
+    const sq5 = crypto.randomUUID();
+
+    await s.from("questions").insert([
+      {
+        id: sq1,
+        assessment_id: aSurvey.id,
+        position: 1,
+        type: "multipla",
+        prompt: "Quais conteúdos você gostaria de aprender nas próximas semanas?",
+        points: 0,
+        options: [
+          { id: "a", text: "Excel avançado e PROCV" },
+          { id: "b", text: "Inteligência Artificial e Prompts" },
+          { id: "c", text: "Montagem e Manutenção de Hardware" },
+          { id: "d", text: "Lógica de Programação e Python" },
+          { id: "e", text: "Edição de Vídeo e Imagem" },
+        ],
+      },
+      {
+        id: sq2,
+        assessment_id: aSurvey.id,
+        position: 2,
+        type: "unica",
+        prompt: "Qual formato de aula você prefere?",
+        points: 0,
+        options: [
+          { id: "a", text: "Aulas práticas com laboratório" },
+          { id: "b", text: "Exercícios e listas individuais" },
+          { id: "c", text: "Projetos práticos em grupo" },
+          { id: "d", text: "Desafios gamificados" },
+        ],
+      },
+      {
+        id: sq3,
+        assessment_id: aSurvey.id,
+        position: 3,
+        type: "curta",
+        prompt: "Em qual assunto você sente maior dificuldade atualmente?",
+        points: 0,
+        options: [],
+      },
+      {
+        id: sq4,
+        assessment_id: aSurvey.id,
+        position: 4,
+        type: "longa",
+        prompt: "Deixe um comentário, sugestão ou feedback para o professor:",
+        points: 0,
+        options: [],
+      },
+      {
+        id: sq5,
+        assessment_id: aSurvey.id,
+        position: 5,
+        type: "escala",
+        prompt: "De 1 a 5, como você avalia o ritmo e a clareza das aulas até agora?",
+        points: 0,
+        options: [],
+      },
+    ]);
+  }
+
+  // 6. Create Participants and Submissions in INFO26
+  const { data: p1 } = await s.from("participants").insert({
+    room_id: infoId,
+    name: "João Victor Silveira",
+    class_name: "Informática",
+  }).select("id").single();
+
+  const { data: p2 } = await s.from("participants").insert({
+    room_id: infoId,
+    name: "Maria Silva Santos",
+    class_name: "Informática",
+  }).select("id").single();
+
+  await s.from("participants").insert({
+    room_id: infoId,
+    name: "Carlos Souza Oliveira",
+    class_name: "Informática",
+  });
+
+  const { data: p4 } = await s.from("participants").insert({
+    room_id: infoId,
+    name: "Ana Paula Ferreira",
+    class_name: "Informática",
+  }).select("id").single();
+
+  // Create completed submission for João Victor
+  if (p1 && aProva) {
+    const started = new Date(Date.now() - 35 * 60 * 1000).toISOString();
+    const submitted = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: sub1 } = await s.from("submissions").insert({
+      assessment_id: aProva.id,
+      participant_id: p1.id,
+      status: "concluida",
+      started_at: started,
+      submitted_at: submitted,
+      score: 7.5,
+      max_score: 10,
+      needs_review: true,
+    }).select("id").single();
+
+    if (sub1) {
+      const { data: qs } = await s.from("questions").select("id,position").eq("assessment_id", aProva.id);
+      for (const q of qs ?? []) {
+        if (q.position === 1) {
+          await s.from("answers").insert({ submission_id: sub1.id, question_id: q.id, answer: "b", is_correct: true, score_awarded: 2.5 });
+        } else if (q.position === 2) {
+          await s.from("answers").insert({ submission_id: sub1.id, question_id: q.id, answer: ["a", "b", "c"], is_correct: true, score_awarded: 2.5 });
+        } else if (q.position === 3) {
+          await s.from("answers").insert({ submission_id: sub1.id, question_id: q.id, answer: "v", is_correct: true, score_awarded: 2.5 });
+        } else if (q.position === 4) {
+          await s.from("answers").insert({ submission_id: sub1.id, question_id: q.id, answer: "A SOMA calcula a soma total dos valores selecionados. A MÉDIA soma e divide pela quantidade para achar a média aritmética.", is_correct: null, score_awarded: null });
+        }
+      }
+    }
+  }
+
+  // Create in-progress submission for Maria Silva
+  if (p2 && aProva) {
+    await s.from("submissions").insert({
+      assessment_id: aProva.id,
+      participant_id: p2.id,
+      status: "em_andamento",
+      started_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    });
+  }
+
+  // Create completed submission for Ana Paula
+  if (p4 && aProva) {
+    const started = new Date(Date.now() - 40 * 60 * 1000).toISOString();
+    const submitted = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    await s.from("submissions").insert({
+      assessment_id: aProva.id,
+      participant_id: p4.id,
+      status: "concluida",
+      started_at: started,
+      submitted_at: submitted,
+      score: 10.0,
+      max_score: 10,
+      needs_review: false,
+    });
+  }
+
+  // Survey submission for João Victor
+  if (p1 && aSurvey) {
+    const { data: sSub } = await s.from("submissions").insert({
+      assessment_id: aSurvey.id,
+      participant_id: p1.id,
+      status: "concluida",
+      started_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+      submitted_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    }).select("id").single();
+
+    if (sSub) {
+      const { data: qs } = await s.from("questions").select("id,position").eq("assessment_id", aSurvey.id);
+      for (const q of qs ?? []) {
+        if (q.position === 1) await s.from("answers").insert({ submission_id: sSub.id, question_id: q.id, answer: ["a", "b"] });
+        if (q.position === 2) await s.from("answers").insert({ submission_id: sSub.id, question_id: q.id, answer: "a" });
+        if (q.position === 3) await s.from("answers").insert({ submission_id: sSub.id, question_id: q.id, answer: "Formatação condicional" });
+        if (q.position === 4) await s.from("answers").insert({ submission_id: sSub.id, question_id: q.id, answer: "As aulas práticas no laboratório são excelentes, continue assim!" });
+        if (q.position === 5) await s.from("answers").insert({ submission_id: sSub.id, question_id: q.id, answer: "5" });
+      }
+    }
+  }
+
+  return { ok: true };
+});
+
+export const clearAllData = createServerFn({ method: "POST" }).handler(async () => {
+  const s = await db();
+  await s.from("answers").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await s.from("submissions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await s.from("answer_keys").delete().neq("question_id", "00000000-0000-0000-0000-000000000000");
+  await s.from("questions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await s.from("assessments").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await s.from("participants").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await s.from("rooms").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  return { ok: true };
+});
+
