@@ -51,6 +51,17 @@ describe("DOCX & Text Question Parser", () => {
     expect(qs[0].type).toBe("longa");
   });
 
+  it("extrai gabarito de texto para questão de resposta curta / preencher", () => {
+    const raw = `
+    5. Qual é a capital do Brasil?
+    Gabarito: Brasília
+    `;
+    const qs = parseQuestionsFromText(raw);
+    expect(qs.length).toBe(1);
+    expect(qs[0].type).toBe("curta");
+    expect(qs[0].correct).toBe("Brasília");
+  });
+
   it("converte XML de Word em parágrafos de texto legíveis", async () => {
     const { extractTextFromDocx } = await import("./docx-parser");
     const mockWordXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

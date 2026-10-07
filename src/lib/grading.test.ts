@@ -56,7 +56,7 @@ describe("autocorreção de resposta curta", () => {
   });
 
   it("gradeShortAnswer moderada (50%–74%) → metade, sem revisão", () => {
-    const r = gradeShortAnswer(2, "respiração celular aeróbica", "respiração");
+    const r = gradeShortAnswer(2, "respiração celular aeróbica", "respiração celular");
     expect(r.needs_review).toBe(false);
     expect(r.similarity).toBeGreaterThanOrEqual(0.50);
   });

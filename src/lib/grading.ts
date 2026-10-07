@@ -53,8 +53,23 @@ export function textSimilarity(a: string, b: string): number {
   const nb = normalizeText(b);
   if (na === nb) return 1;
   if (!na || !nb) return 0;
-  const maxLen = Math.max(na.length, nb.length);
-  return 1 - levenshtein(na, nb) / maxLen;
+
+  const charSim = 1 - levenshtein(na, nb) / Math.max(na.length, nb.length);
+
+  const wordsA = na.split(" ").filter(Boolean);
+  const wordsB = nb.split(" ").filter(Boolean);
+  if (wordsA.length > 1 || wordsB.length > 1) {
+    const setA = new Set(wordsA);
+    const setB = new Set(wordsB);
+    let common = 0;
+    for (const w of setA) {
+      if (setB.has(w)) common++;
+    }
+    const tokenSim = common / Math.max(setA.size, setB.size);
+    return Math.max(charSim, tokenSim);
+  }
+
+  return charSim;
 }
 
 /** Thresholds for short-answer auto-grading */

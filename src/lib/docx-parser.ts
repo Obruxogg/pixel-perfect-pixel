@@ -76,6 +76,9 @@ export function parseQuestionsFromText(text: string): ParsedQuestion[] {
         finalType = "longa";
       } else {
         finalType = "curta";
+        if (currentQ.detectedCorrect) {
+          correct = currentQ.detectedCorrect;
+        }
       }
     }
 
@@ -111,9 +114,14 @@ export function parseQuestionsFromText(text: string): ParsedQuestion[] {
       continue;
     }
 
-    const gabMatch = line.match(/^(gabarito|resposta|correta|resposta\s+correta)[:\s]+([a-eA-E])/i);
+    const gabMatch = line.match(/^(gabarito|resposta|correta|resposta\s+correta)[:\s]+(.+)$/i);
     if (gabMatch) {
-      currentQ.detectedCorrect = gabMatch[2].toLowerCase();
+      const val = gabMatch[2].trim();
+      if (/^[a-eA-E]$/.test(val)) {
+        currentQ.detectedCorrect = val.toLowerCase();
+      } else {
+        currentQ.detectedCorrect = val;
+      }
       continue;
     }
 
