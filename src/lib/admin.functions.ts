@@ -177,9 +177,9 @@ export const getAssessment = createServerFn({ method: "POST" })
 
 const questionSchema = z.object({
   id: uuid, type: z.enum(["unica", "multipla", "vf", "curta", "longa", "escala"]),
-  prompt: z.string().trim().min(1, "Toda questão precisa de enunciado").max(2000), points: z.number().min(0).max(100),
-  options: z.array(z.object({ id: z.string().max(20), text: z.string().max(500) })).max(20),
-  correct: z.union([z.string().max(20), z.array(z.string().max(20)), z.null()]),
+  prompt: z.string().trim().min(1, "Toda questão precisa de enunciado").max(5000), points: z.number().min(0).max(100),
+  options: z.array(z.object({ id: z.string().max(100), text: z.string().max(2000) })).max(50),
+  correct: z.union([z.string().max(5000), z.array(z.string().max(500)), z.null()]),
 });
 
 export const saveAssessment = createServerFn({ method: "POST" })
