@@ -11,6 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as ProjetarIdRouteImport } from './routes/projetar.$id'
+import { Route as AdminSalasIndexRouteImport } from './routes/admin.salas.index'
+import { Route as AdminSalasIdRouteImport } from './routes/admin.salas.$id'
+import { Route as SCodeIndexRouteImport } from './routes/s.$code.index'
+import { Route as SCodeAAssessmentIdRouteImport } from './routes/s.$code.a.$assessmentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +28,105 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ProjetarIdRoute = ProjetarIdRouteImport.update({
+  id: '/projetar/$id',
+  path: '/projetar/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSalasIndexRoute = AdminSalasIndexRouteImport.update({
+  id: '/salas/',
+  path: '/salas/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSalasIdRoute = AdminSalasIdRouteImport.update({
+  id: '/salas/$id',
+  path: '/salas/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const SCodeIndexRoute = SCodeIndexRouteImport.update({
+  id: '/s/$code/',
+  path: '/s/$code/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SCodeAAssessmentIdRoute = SCodeAAssessmentIdRouteImport.update({
+  id: '/s/$code/a/$assessmentId',
+  path: '/s/$code/a/$assessmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/projetar/$id': typeof ProjetarIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas/': typeof AdminSalasIndexRoute
+  '/s/$code/': typeof SCodeIndexRoute
+  '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/projetar/$id': typeof ProjetarIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas': typeof AdminSalasIndexRoute
+  '/s/$code': typeof SCodeIndexRoute
+  '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/projetar/$id': typeof ProjetarIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/salas/': typeof AdminSalasIndexRoute
+  '/s/$code/': typeof SCodeIndexRoute
+  '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/projetar/$id'
+    | '/admin/'
+    | '/admin/salas/$id'
+    | '/admin/salas/'
+    | '/s/$code/'
+    | '/s/$code/a/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin'
-  id: '__root__' | '/' | '/admin'
+  to:
+    | '/'
+    | '/projetar/$id'
+    | '/admin'
+    | '/admin/salas/$id'
+    | '/admin/salas'
+    | '/s/$code'
+    | '/s/$code/a/$assessmentId'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/projetar/$id'
+    | '/admin/'
+    | '/admin/salas/$id'
+    | '/admin/salas/'
+    | '/s/$code/'
+    | '/s/$code/a/$assessmentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  ProjetarIdRoute: typeof ProjetarIdRoute
+  SCodeIndexRoute: typeof SCodeIndexRoute
+  SCodeAAssessmentIdRoute: typeof SCodeAAssessmentIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +145,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/projetar/$id': {
+      id: '/projetar/$id'
+      path: '/projetar/$id'
+      fullPath: '/projetar/$id'
+      preLoaderRoute: typeof ProjetarIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/salas/': {
+      id: '/admin/salas/'
+      path: '/salas'
+      fullPath: '/admin/salas/'
+      preLoaderRoute: typeof AdminSalasIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/salas/$id': {
+      id: '/admin/salas/$id'
+      path: '/salas/$id'
+      fullPath: '/admin/salas/$id'
+      preLoaderRoute: typeof AdminSalasIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/s/$code/': {
+      id: '/s/$code/'
+      path: '/s/$code'
+      fullPath: '/s/$code/'
+      preLoaderRoute: typeof SCodeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/s/$code/a/$assessmentId': {
+      id: '/s/$code/a/$assessmentId'
+      path: '/s/$code/a/$assessmentId'
+      fullPath: '/s/$code/a/$assessmentId'
+      preLoaderRoute: typeof SCodeAAssessmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminSalasIdRoute: typeof AdminSalasIdRoute
+  AdminSalasIndexRoute: typeof AdminSalasIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+  AdminSalasIdRoute: AdminSalasIdRoute,
+  AdminSalasIndexRoute: AdminSalasIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
+  ProjetarIdRoute: ProjetarIdRoute,
+  SCodeIndexRoute: SCodeIndexRoute,
+  SCodeAAssessmentIdRoute: SCodeAAssessmentIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
