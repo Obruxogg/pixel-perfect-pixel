@@ -12,7 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminBancoRouteImport } from './routes/admin.banco'
+import { Route as AdminConfiguracoesRouteImport } from './routes/admin.configuracoes'
+import { Route as AdminRelatoriosRouteImport } from './routes/admin.relatorios'
 import { Route as ProjetarIdRouteImport } from './routes/projetar.$id'
+import { Route as AdminAnaliseIdRouteImport } from './routes/admin.analise.$id'
+import { Route as AdminAvaliacoesIndexRouteImport } from './routes/admin.avaliacoes.index'
+import { Route as AdminAvaliacoesIdRouteImport } from './routes/admin.avaliacoes.$id'
+import { Route as AdminResultadosIndexRouteImport } from './routes/admin.resultados.index'
+import { Route as AdminResultadosIdRouteImport } from './routes/admin.resultados.$id'
 import { Route as AdminSalasIndexRouteImport } from './routes/admin.salas.index'
 import { Route as AdminSalasIdRouteImport } from './routes/admin.salas.$id'
 import { Route as SCodeIndexRouteImport } from './routes/s.$code.index'
@@ -33,10 +41,50 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminBancoRoute = AdminBancoRouteImport.update({
+  id: '/banco',
+  path: '/banco',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminConfiguracoesRoute = AdminConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRelatoriosRoute = AdminRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ProjetarIdRoute = ProjetarIdRouteImport.update({
   id: '/projetar/$id',
   path: '/projetar/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAnaliseIdRoute = AdminAnaliseIdRouteImport.update({
+  id: '/analise/$id',
+  path: '/analise/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAvaliacoesIndexRoute = AdminAvaliacoesIndexRouteImport.update({
+  id: '/avaliacoes/',
+  path: '/avaliacoes/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAvaliacoesIdRoute = AdminAvaliacoesIdRouteImport.update({
+  id: '/avaliacoes/$id',
+  path: '/avaliacoes/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminResultadosIndexRoute = AdminResultadosIndexRouteImport.update({
+  id: '/resultados/',
+  path: '/resultados/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminResultadosIdRoute = AdminResultadosIdRouteImport.update({
+  id: '/resultados/$id',
+  path: '/resultados/$id',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminSalasIndexRoute = AdminSalasIndexRouteImport.update({
   id: '/salas/',
@@ -62,18 +110,34 @@ const SCodeAAssessmentIdRoute = SCodeAAssessmentIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin/banco': typeof AdminBancoRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/relatorios': typeof AdminRelatoriosRoute
   '/projetar/$id': typeof ProjetarIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/analise/$id': typeof AdminAnaliseIdRoute
+  '/admin/avaliacoes/$id': typeof AdminAvaliacoesIdRoute
+  '/admin/resultados/$id': typeof AdminResultadosIdRoute
   '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/avaliacoes/': typeof AdminAvaliacoesIndexRoute
+  '/admin/resultados/': typeof AdminResultadosIndexRoute
   '/admin/salas/': typeof AdminSalasIndexRoute
   '/s/$code/': typeof SCodeIndexRoute
   '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin/banco': typeof AdminBancoRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/relatorios': typeof AdminRelatoriosRoute
   '/projetar/$id': typeof ProjetarIdRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/analise/$id': typeof AdminAnaliseIdRoute
+  '/admin/avaliacoes/$id': typeof AdminAvaliacoesIdRoute
+  '/admin/resultados/$id': typeof AdminResultadosIdRoute
   '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/avaliacoes': typeof AdminAvaliacoesIndexRoute
+  '/admin/resultados': typeof AdminResultadosIndexRoute
   '/admin/salas': typeof AdminSalasIndexRoute
   '/s/$code': typeof SCodeIndexRoute
   '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
@@ -82,9 +146,17 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin/banco': typeof AdminBancoRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/relatorios': typeof AdminRelatoriosRoute
   '/projetar/$id': typeof ProjetarIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/analise/$id': typeof AdminAnaliseIdRoute
+  '/admin/avaliacoes/$id': typeof AdminAvaliacoesIdRoute
+  '/admin/resultados/$id': typeof AdminResultadosIdRoute
   '/admin/salas/$id': typeof AdminSalasIdRoute
+  '/admin/avaliacoes/': typeof AdminAvaliacoesIndexRoute
+  '/admin/resultados/': typeof AdminResultadosIndexRoute
   '/admin/salas/': typeof AdminSalasIndexRoute
   '/s/$code/': typeof SCodeIndexRoute
   '/s/$code/a/$assessmentId': typeof SCodeAAssessmentIdRoute
@@ -94,18 +166,34 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/admin/banco'
+    | '/admin/configuracoes'
+    | '/admin/relatorios'
     | '/projetar/$id'
     | '/admin/'
+    | '/admin/analise/$id'
+    | '/admin/avaliacoes/$id'
+    | '/admin/resultados/$id'
     | '/admin/salas/$id'
+    | '/admin/avaliacoes/'
+    | '/admin/resultados/'
     | '/admin/salas/'
     | '/s/$code/'
     | '/s/$code/a/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin/banco'
+    | '/admin/configuracoes'
+    | '/admin/relatorios'
     | '/projetar/$id'
     | '/admin'
+    | '/admin/analise/$id'
+    | '/admin/avaliacoes/$id'
+    | '/admin/resultados/$id'
     | '/admin/salas/$id'
+    | '/admin/avaliacoes'
+    | '/admin/resultados'
     | '/admin/salas'
     | '/s/$code'
     | '/s/$code/a/$assessmentId'
@@ -113,9 +201,17 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/admin/banco'
+    | '/admin/configuracoes'
+    | '/admin/relatorios'
     | '/projetar/$id'
     | '/admin/'
+    | '/admin/analise/$id'
+    | '/admin/avaliacoes/$id'
+    | '/admin/resultados/$id'
     | '/admin/salas/$id'
+    | '/admin/avaliacoes/'
+    | '/admin/resultados/'
     | '/admin/salas/'
     | '/s/$code/'
     | '/s/$code/a/$assessmentId'
@@ -152,12 +248,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/banco': {
+      id: '/admin/banco'
+      path: '/banco'
+      fullPath: '/admin/banco'
+      preLoaderRoute: typeof AdminBancoRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/configuracoes': {
+      id: '/admin/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AdminConfiguracoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/relatorios': {
+      id: '/admin/relatorios'
+      path: '/relatorios'
+      fullPath: '/admin/relatorios'
+      preLoaderRoute: typeof AdminRelatoriosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/projetar/$id': {
       id: '/projetar/$id'
       path: '/projetar/$id'
       fullPath: '/projetar/$id'
       preLoaderRoute: typeof ProjetarIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/analise/$id': {
+      id: '/admin/analise/$id'
+      path: '/analise/$id'
+      fullPath: '/admin/analise/$id'
+      preLoaderRoute: typeof AdminAnaliseIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/avaliacoes/': {
+      id: '/admin/avaliacoes/'
+      path: '/avaliacoes'
+      fullPath: '/admin/avaliacoes/'
+      preLoaderRoute: typeof AdminAvaliacoesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/avaliacoes/$id': {
+      id: '/admin/avaliacoes/$id'
+      path: '/avaliacoes/$id'
+      fullPath: '/admin/avaliacoes/$id'
+      preLoaderRoute: typeof AdminAvaliacoesIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/resultados/': {
+      id: '/admin/resultados/'
+      path: '/resultados'
+      fullPath: '/admin/resultados/'
+      preLoaderRoute: typeof AdminResultadosIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/resultados/$id': {
+      id: '/admin/resultados/$id'
+      path: '/resultados/$id'
+      fullPath: '/admin/resultados/$id'
+      preLoaderRoute: typeof AdminResultadosIdRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/admin/salas/': {
       id: '/admin/salas/'
@@ -191,14 +343,30 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminBancoRoute: typeof AdminBancoRoute
+  AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
+  AdminRelatoriosRoute: typeof AdminRelatoriosRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminAnaliseIdRoute: typeof AdminAnaliseIdRoute
+  AdminAvaliacoesIdRoute: typeof AdminAvaliacoesIdRoute
+  AdminResultadosIdRoute: typeof AdminResultadosIdRoute
   AdminSalasIdRoute: typeof AdminSalasIdRoute
+  AdminAvaliacoesIndexRoute: typeof AdminAvaliacoesIndexRoute
+  AdminResultadosIndexRoute: typeof AdminResultadosIndexRoute
   AdminSalasIndexRoute: typeof AdminSalasIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminBancoRoute: AdminBancoRoute,
+  AdminConfiguracoesRoute: AdminConfiguracoesRoute,
+  AdminRelatoriosRoute: AdminRelatoriosRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminAnaliseIdRoute: AdminAnaliseIdRoute,
+  AdminAvaliacoesIdRoute: AdminAvaliacoesIdRoute,
+  AdminResultadosIdRoute: AdminResultadosIdRoute,
   AdminSalasIdRoute: AdminSalasIdRoute,
+  AdminAvaliacoesIndexRoute: AdminAvaliacoesIndexRoute,
+  AdminResultadosIndexRoute: AdminResultadosIndexRoute,
   AdminSalasIndexRoute: AdminSalasIndexRoute,
 }
 
