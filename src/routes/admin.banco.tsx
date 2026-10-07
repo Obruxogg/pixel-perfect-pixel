@@ -681,6 +681,16 @@ function ImportBankDialog({
         </DialogHeader>
 
         <div className="space-y-4 my-2">
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-xs space-y-1 text-muted-foreground">
+            <p className="font-bold text-foreground flex items-center gap-1.5">
+              <FileCheck className="size-3.5 text-primary" /> Como formatar o Gabarito no arquivo (.docx ou .txt):
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 pl-1">
+              <li><b>Múltipla escolha:</b> Adicione um asterisco <code className="bg-background px-1 py-0.5 rounded text-primary">b) Brasília*</code> ou a linha <code className="bg-background px-1 py-0.5 rounded text-primary">Gabarito: B</code>.</li>
+              <li><b>Questões de preencher (curta):</b> Adicione a linha <code className="bg-background px-1 py-0.5 rounded text-primary">Gabarito: Brasília</code> logo abaixo da pergunta.</li>
+            </ul>
+          </div>
+
           <div>
             <Label className="font-semibold mb-1.5 block">Arquivo .docx, .json ou .txt</Label>
             <Input type="file" accept=".docx,.json,.txt,.doc" onChange={handleFileUpload} />
