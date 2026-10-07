@@ -53,7 +53,7 @@ function NewRoomDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (b
   const suggest = useServerFn(suggestCode);
   const qc = useQueryClient();
   const nav = useNavigate();
-  useEffect(() => { if (open) setF({ name: "", class_name: "", description: "", code: "" }); }, [open]);
+  useEffect(() => { if (open) { setF({ name: "", class_name: "", description: "", code: "" }); } }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
