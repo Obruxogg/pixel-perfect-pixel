@@ -10,7 +10,7 @@ import {
   deleteAssessment,
   unlinkAssessmentFromRoom,
 } from "@/lib/admin.functions";
-import { parseQuestionsFromText, extractTextFromDocx, type ParsedQuestion } from "@/lib/docx-parser";
+import { parseQuestionsFromText, extractTextFromDocx, parseGabaritoOnlyText, type ParsedQuestion, type ParsedGabaritoItem } from "@/lib/docx-parser";
 import { PageHeader, StatusPill } from "@/components/AdminShell";
 import { QTYPE_LABEL, type QType } from "@/lib/grading";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import {
   Layers,
   Sparkles,
   Search,
+  FileCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/avaliacoes/$id")({
@@ -95,6 +96,7 @@ function AssessmentEditor() {
 
   // Modals
   const [importOpen, setImportOpen] = useState(false);
+  const [importGabaritoOpen, setImportGabaritoOpen] = useState(false);
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -380,6 +382,9 @@ function AssessmentEditor() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               <UploadCloud className="size-4 mr-1.5" /> Importar DOCX / Texto
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setImportGabaritoOpen(true)} className="border-emerald-300 text-emerald-800 hover:bg-emerald-50">
+              <FileCheck className="size-4 mr-1.5 text-emerald-600" /> Importar Gabarito
             </Button>
             <Button variant="outline" size="sm" onClick={exportToJson} title="Exportar JSON">
               <Download className="size-4 mr-1.5" /> Exportar JSON
@@ -974,7 +979,158 @@ function AssessmentEditor() {
           toast.success(`${selected.length} questões inseridas a partir do Banco!`);
         }}
       />
+      {/* Standalone Gabarito Import Modal */}
+      <ImportGabaritoModal
+        open={importGabaritoOpen}
+        onOpenChange={setImportGabaritoOpen}
+        questions={questions}
+        onApplyGabarito={(updated) => {
+          setQuestions(updated);
+        }}
+      />
     </div>
+  );
+}
+
+function ImportGabaritoModal({
+  open,
+  onOpenChange,
+  questions,
+  onApplyGabarito,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  questions: QuestionItem[];
+  onApplyGabarito: (updatedQuestions: QuestionItem[]) => void;
+}) {
+  const [text, setText] = useState("");
+  const [parsedItems, setParsedItems] = useState<ParsedGabaritoItem[]>([]);
+
+  function processGabaritoText(str: string) {
+    setText(str);
+    const parsed = parseGabaritoOnlyText(str);
+    setParsedItems(parsed);
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.name.endsWith(".docx")) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const extracted = await extractTextFromDocx(buffer);
+        if (extracted) {
+          processGabaritoText(extracted);
+          toast.success("Gabarito extraído do arquivo DOCX!");
+        }
+      } catch {
+        toast.error("Erro ao ler gabarito DOCX.");
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        processGabaritoText(ev.target?.result as string);
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  function handleConfirm() {
+    if (!parsedItems.length) return toast.error("Nenhum gabarito identificado no texto.");
+
+    const updated = [...questions];
+    let appliedCount = 0;
+
+    for (const item of parsedItems) {
+      const qIndex = item.questionNumber - 1;
+      if (qIndex >= 0 && qIndex < updated.length) {
+        updated[qIndex] = {
+          ...updated[qIndex],
+          correct: item.correct,
+        };
+        appliedCount++;
+      }
+    }
+
+    onApplyGabarito(updated);
+    toast.success(`Gabarito aplicado com sucesso em ${appliedCount} questões! Lembre-se de salvar a prova.`);
+    onOpenChange(false);
+    setText("");
+    setParsedItems([]);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <FileCheck className="size-5 text-emerald-600" />
+            Importar Gabarito Oficial
+          </DialogTitle>
+          <DialogDescription>
+            Cole a lista de respostas ou envie um arquivo (.txt ou .docx) com as respostas corretas (ex: 1. B, 2. C, 3. Fotossíntese...).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 my-2">
+          <div>
+            <Label className="font-semibold mb-1.5 block">Enviar arquivo (.txt ou .docx)</Label>
+            <Input type="file" accept=".docx,.txt" onChange={handleFileUpload} className="cursor-pointer" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-semibold">Ou cole a lista de gabaritos aqui:</Label>
+            <Textarea
+              value={text}
+              onChange={(e) => processGabaritoText(e.target.value)}
+              placeholder={`Formatos aceitos:\n1. B\n2. C\n3. Gerenciar o computador, seus recursos, programas e dispositivos.\n4. Ctrl + C\n5. V`}
+              rows={6}
+              className="font-mono text-xs"
+            />
+          </div>
+
+          {parsedItems.length > 0 && (
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <p className="font-bold text-sm text-emerald-700 flex items-center gap-1.5">
+                <CheckCircle className="size-4" /> {parsedItems.length} gabaritos identificados para vincular:
+              </p>
+
+              <div className="space-y-1.5 max-h-56 overflow-y-auto bg-emerald-50/60 border border-emerald-200 p-3 rounded-lg text-xs">
+                {parsedItems.map((item) => {
+                  const targetQ = questions[item.questionNumber - 1];
+                  const qTitle = targetQ ? targetQ.prompt.slice(0, 50) + "..." : "Questão " + item.questionNumber + " (fora da lista)";
+                  const correctDisplay = Array.isArray(item.correct)
+                    ? item.correct.join(", ").toUpperCase()
+                    : String(item.correct).toUpperCase();
+
+                  return (
+                    <div key={item.questionNumber} className="flex justify-between items-center py-1.5 border-b border-emerald-100 last:border-0">
+                      <div>
+                        <span className="font-bold text-emerald-950">Questão {item.questionNumber}:</span>{" "}
+                        <span className="text-muted-foreground">{qTitle}</span>
+                      </div>
+                      <span className="font-mono font-bold px-2 py-0.5 rounded bg-emerald-600 text-white text-xs whitespace-nowrap ml-2">
+                        {correctDisplay}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button variant="chalk" onClick={handleConfirm} disabled={!parsedItems.length}>
+            Aplicar Gabarito às {parsedItems.length} Questões
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

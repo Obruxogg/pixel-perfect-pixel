@@ -130,9 +130,11 @@ export function gradeAnswer(type: QType, points: number, correct: unknown, answe
   if (empty) return { is_correct: false, score_awarded: 0, needs_review: false };
   let ok: boolean;
   if (type === "multipla") {
-    const a = new Set(Array.isArray(answer) ? (answer as string[]) : []);
-    const c = new Set(Array.isArray(correct) ? (correct as string[]) : []);
+    const a = new Set(Array.isArray(answer) ? (answer as string[]).map((x) => String(x).trim().toLowerCase()) : []);
+    const c = new Set(Array.isArray(correct) ? (correct as string[]).map((x) => String(x).trim().toLowerCase()) : []);
     ok = a.size === c.size && [...a].every((x) => c.has(x));
+  } else if (typeof answer === "string" && typeof correct === "string") {
+    ok = answer.trim().toLowerCase() === correct.trim().toLowerCase();
   } else {
     ok = answer === correct;
   }

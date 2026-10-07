@@ -390,3 +390,64 @@ async function decompressDeflateRaw(compressedData: Uint8Array): Promise<string>
   }
   return "";
 }
+
+export interface ParsedGabaritoItem {
+  questionNumber: number;
+  correct: string | string[];
+}
+
+export function parseGabaritoOnlyText(text: string): ParsedGabaritoItem[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const results: ParsedGabaritoItem[] = [];
+
+  for (const line of lines) {
+    const match = line.match(/^(?:q|quest[aã]o|n[ºo]?)?\s*(\d+)[\.\-\:\)\s]+(.+)$/i);
+    if (match) {
+      const qNum = parseInt(match[1], 10);
+      const val = match[2].trim();
+      if (!val) continue;
+
+      if (/^[a-eA-E](?:\s*,\s*[a-eA-E])+$/.test(val)) {
+        const arr = val.split(",").map((s) => s.trim().toLowerCase());
+        results.push({ questionNumber: qNum, correct: arr });
+      } else if (/^[a-eA-E]$/i.test(val)) {
+        results.push({ questionNumber: qNum, correct: val.toLowerCase() });
+      } else if (/^v(?:erdadeiro)?$/i.test(val)) {
+        results.push({ questionNumber: qNum, correct: "v" });
+      } else if (/^f(?:also)?$/i.test(val)) {
+        results.push({ questionNumber: qNum, correct: "f" });
+      } else {
+        results.push({ questionNumber: qNum, correct: val });
+      }
+    }
+  }
+
+  if (results.length === 0) {
+    const compactMatches = [...text.matchAll(/(\d+)[\.\-\:]?\s*([a-eA-E]|v|f)/gi)];
+    if (compactMatches.length > 0) {
+      for (const m of compactMatches) {
+        results.push({
+          questionNumber: parseInt(m[1], 10),
+          correct: m[2].toLowerCase(),
+        });
+      }
+    } else {
+      lines.forEach((l, i) => {
+        const clean = l.replace(/^(gabarito|resposta)[:\s]*/i, "").trim();
+        if (clean) {
+          if (/^[a-eA-E]$/i.test(clean)) {
+            results.push({ questionNumber: i + 1, correct: clean.toLowerCase() });
+          } else {
+            results.push({ questionNumber: i + 1, correct: clean });
+          }
+        }
+      });
+    }
+  }
+
+  return results;
+}

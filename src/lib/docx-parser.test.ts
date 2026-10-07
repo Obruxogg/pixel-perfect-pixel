@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuestionsFromText } from "./docx-parser";
+import { parseQuestionsFromText, parseGabaritoOnlyText } from "./docx-parser";
 
 describe("DOCX & Text Question Parser", () => {
   it("extrai questões de múltipla escolha com gabarito asterisco", () => {
@@ -84,5 +84,21 @@ describe("DOCX & Text Question Parser", () => {
     expect(qs.length).toBe(1);
     expect(qs[0].prompt).toContain("Qual a função do processador?");
     expect(qs[0].correct).toBe("a");
+  });
+  it("extrai gabarito isolado de texto ou lista de respostas", () => {
+    const raw = `
+    1. B
+    2. C
+    3. Gerenciar o computador, seus recursos, programas e dispositivos.
+    4. Ctrl + C
+    5. V
+    `;
+    const g = parseGabaritoOnlyText(raw);
+    expect(g.length).toBe(5);
+    expect(g[0]).toEqual({ questionNumber: 1, correct: "b" });
+    expect(g[1]).toEqual({ questionNumber: 2, correct: "c" });
+    expect(g[2]).toEqual({ questionNumber: 3, correct: "Gerenciar o computador, seus recursos, programas e dispositivos." });
+    expect(g[3]).toEqual({ questionNumber: 4, correct: "Ctrl + C" });
+    expect(g[4]).toEqual({ questionNumber: 5, correct: "v" });
   });
 });

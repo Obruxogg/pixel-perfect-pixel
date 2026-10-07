@@ -191,10 +191,12 @@ function SubmissionDetail() {
                 {isObjective && (
                   <div className="space-y-1.5">
                     {question.options.map((opt) => {
-                      const isSelected =
-                        Array.isArray(userAns) ? userAns.includes(opt.id) : String(userAns) === opt.id;
-                      const isOptionCorrect =
-                        Array.isArray(correct) ? correct.includes(opt.id) : String(correct) === opt.id;
+                      const normAns = Array.isArray(userAns) ? userAns.map((x) => String(x).toLowerCase()) : String(userAns ?? "").toLowerCase();
+                      const normCorr = Array.isArray(correct) ? correct.map((x) => String(x).toLowerCase()) : String(correct ?? "").toLowerCase();
+                      const optIdNorm = opt.id.toLowerCase();
+
+                      const isSelected = Array.isArray(normAns) ? normAns.includes(optIdNorm) : normAns === optIdNorm;
+                      const isOptionCorrect = Array.isArray(normCorr) ? normCorr.includes(optIdNorm) : normCorr === optIdNorm;
 
                       let style = "border-border bg-background";
                       if (isSelected && isOptionCorrect) style = "border-success bg-success/10 text-success font-medium";
