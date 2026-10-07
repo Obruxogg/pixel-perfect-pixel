@@ -8,6 +8,7 @@ import { PageHeader, StatusPill, fmtTime, fmtDate } from "@/components/AdminShel
 import { TYPE_LABEL, QTYPE_LABEL, toTen } from "@/lib/grading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle, AlertCircle, ArrowLeft, Save, User, Calendar, Award } from "lucide-react";
 
 export const Route = createFileRoute("/admin/resultados/$id")({

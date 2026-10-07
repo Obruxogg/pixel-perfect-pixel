@@ -152,25 +152,233 @@ export function parseQuestionsFromText(text: string): ParsedQuestion[] {
   return questions;
 }
 
-// Function to extract text from a DOCX ArrayBuffer in browser using XML parsing
+/**
+ * Extracts paragraphs of text from a Word (.docx) document.
+ * A .docx file is a ZIP archive containing XML files inside (e.g. `word/document.xml`).
+ * This function parses the ZIP structures and decompresses `word/document.xml` using Web Stream decompression.
+ */
 export async function extractTextFromDocx(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    const uint8 = new Uint8Array(arrayBuffer);
-    const decoder = new TextDecoder("utf-8");
-    const binaryString = decoder.decode(uint8);
-
-    const wtMatches = binaryString.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
-    if (wtMatches && wtMatches.length > 0) {
-      const texts: string[] = [];
-      for (const m of wtMatches) {
-        const text = m.replace(/<[^>]+>/g, "");
-        texts.push(text);
+    const bytes = new Uint8Array(arrayBuffer);
+    const xml = await findAndDecompressFileInZip(bytes, "word/document.xml");
+    if (!xml) {
+      // If word/document.xml was not found directly, try fallback for any .xml containing w:p
+      const textDecoder = new TextDecoder("utf-8");
+      const rawText = textDecoder.decode(bytes);
+      if (rawText.includes("<w:p") || rawText.includes("<w:t")) {
+        return parseWordXmlParagraphs(rawText);
       }
-      return texts.join("\n");
+      return "";
     }
 
-    return binaryString.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  } catch {
+    return parseWordXmlParagraphs(xml);
+  } catch (err) {
+    console.error("Error extracting text from docx:", err);
     return "";
   }
+}
+
+/**
+ * Parse Word XML `<w:p>` paragraphs and `<w:t>` text nodes into clean text lines.
+ */
+function parseWordXmlParagraphs(xml: string): string {
+  const paragraphs: string[] = [];
+
+  // Match each <w:p>...</w:p> or <w:p ...>...</w:p>
+  const pRegex = /<w:p(?:\s[^>]*)?>([\s\S]*?)<\/w:p>/g;
+  let pMatch: RegExpExecArray | null;
+
+  while ((pMatch = pRegex.exec(xml)) !== null) {
+    const pContent = pMatch[1];
+    // Extract all <w:t> tags within this paragraph
+    const tRegex = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g;
+    let tMatch: RegExpExecArray | null;
+    let paragraphText = "";
+
+    while ((tMatch = tRegex.exec(pContent)) !== null) {
+      paragraphText += tMatch[1];
+    }
+
+    // Decode standard XML entities
+    paragraphText = paragraphText
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .trim();
+
+    if (paragraphText) {
+      paragraphs.push(paragraphText);
+    }
+  }
+
+  // If no <w:p> found, extract any <w:t> tags
+  if (paragraphs.length === 0) {
+    const tRegex = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g;
+    let tMatch: RegExpExecArray | null;
+    while ((tMatch = tRegex.exec(xml)) !== null) {
+      const text = tMatch[1]
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .trim();
+      if (text) paragraphs.push(text);
+    }
+  }
+
+  return paragraphs.join("\n");
+}
+
+/**
+ * Parses ZIP format (Local headers & Central Directory) to find a target file and decompress it.
+ */
+async function findAndDecompressFileInZip(bytes: Uint8Array, targetFileName: string): Promise<string | null> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  // 1. Iterate through Local File Headers (signature 0x04034b50 -> 'PK\x03\x04')
+  let offset = 0;
+  const len = bytes.length;
+
+  while (offset + 30 <= len) {
+    const sig = view.getUint32(offset, true);
+    if (sig === 0x04034b50) {
+      // Local file header
+      const compression = view.getUint16(offset + 8, true);
+      let compressedSize = view.getUint32(offset + 18, true);
+      const uncompressedSize = view.getUint32(offset + 22, true);
+      const fileNameLen = view.getUint16(offset + 26, true);
+      const extraLen = view.getUint16(offset + 28, true);
+
+      const fileNameBytes = bytes.subarray(offset + 30, offset + 30 + fileNameLen);
+      const fileName = new TextDecoder("utf-8").decode(fileNameBytes);
+      const dataOffset = offset + 30 + fileNameLen + extraLen;
+
+      if (fileName.toLowerCase() === targetFileName.toLowerCase()) {
+        // If compressedSize is 0 in local header (streaming flag bit 3), search Central Directory
+        if (compressedSize === 0) {
+          const cdSize = findCompressedSizeFromCentralDirectory(bytes, targetFileName);
+          if (cdSize > 0) compressedSize = cdSize;
+        }
+
+        const sliceEnd = compressedSize > 0 ? dataOffset + compressedSize : len;
+        const compressedData = bytes.subarray(dataOffset, sliceEnd);
+
+        if (compression === 0) {
+          // Uncompressed (stored)
+          return new TextDecoder("utf-8").decode(compressedData.subarray(0, uncompressedSize || compressedData.length));
+        } else if (compression === 8) {
+          // Deflate compressed
+          return await decompressDeflateRaw(compressedData);
+        }
+      }
+
+      // Jump to next file if compressedSize is known
+      if (compressedSize > 0) {
+        offset = dataOffset + compressedSize;
+      } else {
+        offset++;
+      }
+    } else {
+      offset++;
+    }
+  }
+
+  // 2. If not found via local headers, scan Central Directory entries (signature 0x02014b50 -> 'PK\x01\x02')
+  offset = 0;
+  while (offset + 46 <= len) {
+    const sig = view.getUint32(offset, true);
+    if (sig === 0x02014b50) {
+      const compression = view.getUint16(offset + 10, true);
+      const compressedSize = view.getUint32(offset + 20, true);
+      const uncompressedSize = view.getUint32(offset + 24, true);
+      const fileNameLen = view.getUint16(offset + 28, true);
+      const extraLen = view.getUint16(offset + 30, true);
+      const commentLen = view.getUint16(offset + 32, true);
+      const localHeaderOffset = view.getUint32(offset + 42, true);
+
+      const fileNameBytes = bytes.subarray(offset + 46, offset + 46 + fileNameLen);
+      const fileName = new TextDecoder("utf-8").decode(fileNameBytes);
+
+      if (fileName.toLowerCase() === targetFileName.toLowerCase()) {
+        // Read from localHeaderOffset
+        const localFileNameLen = view.getUint16(localHeaderOffset + 26, true);
+        const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+        const dataOffset = localHeaderOffset + 30 + localFileNameLen + localExtraLen;
+        const compressedData = bytes.subarray(dataOffset, dataOffset + compressedSize);
+
+        if (compression === 0) {
+          return new TextDecoder("utf-8").decode(compressedData.subarray(0, uncompressedSize || compressedData.length));
+        } else if (compression === 8) {
+          return await decompressDeflateRaw(compressedData);
+        }
+      }
+
+      offset += 46 + fileNameLen + extraLen + commentLen;
+    } else {
+      offset++;
+    }
+  }
+
+  return null;
+}
+
+function findCompressedSizeFromCentralDirectory(bytes: Uint8Array, targetFileName: string): number {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+  const len = bytes.length;
+
+  while (offset + 46 <= len) {
+    const sig = view.getUint32(offset, true);
+    if (sig === 0x02014b50) {
+      const compressedSize = view.getUint32(offset + 20, true);
+      const fileNameLen = view.getUint16(offset + 28, true);
+      const extraLen = view.getUint16(offset + 30, true);
+      const commentLen = view.getUint16(offset + 32, true);
+
+      const fileNameBytes = bytes.subarray(offset + 46, offset + 46 + fileNameLen);
+      const fileName = new TextDecoder("utf-8").decode(fileNameBytes);
+
+      if (fileName.toLowerCase() === targetFileName.toLowerCase()) {
+        return compressedSize;
+      }
+      offset += 46 + fileNameLen + extraLen + commentLen;
+    } else {
+      offset++;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Decompresses raw DEFLATE bytes using native DecompressionStream.
+ */
+async function decompressDeflateRaw(compressedData: Uint8Array): Promise<string> {
+  try {
+    if (typeof DecompressionStream !== "undefined") {
+      const ds = new DecompressionStream("deflate-raw");
+      const writer = ds.writable.getWriter();
+      writer.write(compressedData);
+      writer.close();
+      const res = new Response(ds.readable);
+      const buf = await res.arrayBuffer();
+      return new TextDecoder("utf-8").decode(buf);
+    }
+  } catch {
+    // If deflate-raw fails, try standard deflate with zlib wrapper
+    try {
+      if (typeof DecompressionStream !== "undefined") {
+        const ds = new DecompressionStream("deflate");
+        const writer = ds.writable.getWriter();
+        writer.write(compressedData);
+        writer.close();
+        const res = new Response(ds.readable);
+        const buf = await res.arrayBuffer();
+        return new TextDecoder("utf-8").decode(buf);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return "";
 }
