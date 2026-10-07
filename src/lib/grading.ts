@@ -109,35 +109,118 @@ export function gradeShortAnswer(
   return { is_correct: false, score_awarded: 0, needs_review: true, similarity: sim };
 }
 
-export function gradeAnswer(type: QType, points: number, correct: unknown, answer: unknown): GradeResult {
+/**
+ * Resolves option IDs from raw answer/key (string, array, option text, or letter).
+ */
+export function resolveOptionIds(raw: unknown, options: { id: string; text: string }[] = []): string[] {
+  if (raw === null || raw === undefined || raw === "") return [];
+
+  let items: string[] = [];
+  if (Array.isArray(raw)) {
+    items = raw.map((x) => String(x).trim());
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) items = parsed.map((x) => String(x).trim());
+        else items = [trimmed];
+      } catch {
+        items = [trimmed];
+      }
+    } else {
+      items = [trimmed];
+    }
+  } else {
+    items = [String(raw).trim()];
+  }
+
+  const resolved = new Set<string>();
+
+  for (const item of items) {
+    if (!item) continue;
+    const lowerItem = item.toLowerCase().replace(/[\)\.\:\s]+/g, "").trim();
+
+    // 1. Direct match with option.id (case-insensitive)
+    const directOpt = options.find((o) => o.id.toLowerCase() === lowerItem || o.id.toLowerCase() === item.toLowerCase());
+    if (directOpt) {
+      resolved.add(directOpt.id.toLowerCase());
+      continue;
+    }
+
+    // 2. Match by option text
+    const normTextItem = normalizeText(item);
+    const textOpt = options.find((o) => normalizeText(o.text) === normTextItem || o.text.trim().toLowerCase() === item.toLowerCase());
+    if (textOpt) {
+      resolved.add(textOpt.id.toLowerCase());
+      continue;
+    }
+
+    // 3. Match by single letter "a"=0, "b"=1, "c"=2...
+    if (/^[a-z]$/i.test(lowerItem)) {
+      const idx = lowerItem.toLowerCase().charCodeAt(0) - 97;
+      if (options[idx]) {
+        resolved.add(options[idx].id.toLowerCase());
+        continue;
+      }
+    } else if (/^\d+$/.test(lowerItem)) {
+      const num = parseInt(lowerItem, 10);
+      if (options[num - 1]) {
+        resolved.add(options[num - 1].id.toLowerCase());
+        continue;
+      }
+      if (options[num]) {
+        resolved.add(options[num].id.toLowerCase());
+        continue;
+      }
+    }
+
+    resolved.add(lowerItem);
+  }
+
+  return [...resolved];
+}
+
+export function gradeAnswer(
+  type: QType,
+  points: number,
+  correct: unknown,
+  answer: unknown,
+  options: { id: string; text: string }[] = [],
+): GradeResult {
   const empty = answer === null || answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0);
   if (type === "escala" || points <= 0) return { is_correct: null, score_awarded: null, needs_review: false };
   if (type === "longa") {
-    // Long-form answers always go to manual review
     if (empty) return { is_correct: false, score_awarded: 0, needs_review: false };
     return { is_correct: null, score_awarded: null, needs_review: true };
   }
   if (type === "curta") {
     if (empty) return { is_correct: false, score_awarded: 0, needs_review: false };
-    // If teacher provided an expected answer, auto-grade by similarity
     if (correct !== null && correct !== undefined && String(correct).trim()) {
-      return gradeShortAnswer(points, String(correct), String(answer));
+      let normCorrectStr = String(correct);
+      if (Array.isArray(correct)) normCorrectStr = correct.join(", ");
+      return gradeShortAnswer(points, normCorrectStr, String(answer));
     }
-    // No expected answer → manual review
     return { is_correct: null, score_awarded: null, needs_review: true };
   }
   if (correct === null || correct === undefined) return { is_correct: null, score_awarded: null, needs_review: true };
   if (empty) return { is_correct: false, score_awarded: 0, needs_review: false };
+
+  const correctIds = resolveOptionIds(correct, options);
+  const answerIds = resolveOptionIds(answer, options);
+
+  if (correctIds.length === 0) return { is_correct: null, score_awarded: null, needs_review: true };
+
   let ok: boolean;
   if (type === "multipla") {
-    const a = new Set(Array.isArray(answer) ? (answer as string[]).map((x) => String(x).trim().toLowerCase()) : []);
-    const c = new Set(Array.isArray(correct) ? (correct as string[]).map((x) => String(x).trim().toLowerCase()) : []);
-    ok = a.size === c.size && [...a].every((x) => c.has(x));
-  } else if (typeof answer === "string" && typeof correct === "string") {
-    ok = answer.trim().toLowerCase() === correct.trim().toLowerCase();
+    const cSet = new Set(correctIds);
+    const aSet = new Set(answerIds);
+    ok = cSet.size === aSet.size && [...aSet].every((x) => cSet.has(x));
   } else {
-    ok = answer === correct;
+    const cSet = new Set(correctIds);
+    ok = answerIds.some((x) => cSet.has(x));
   }
+
   return { is_correct: ok, score_awarded: ok ? points : 0, needs_review: false };
 }
 

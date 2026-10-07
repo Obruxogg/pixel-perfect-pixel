@@ -101,13 +101,14 @@ export const submitAssessment = createServerFn({ method: "POST" })
     const { data: sub } = await s.from("submissions").select("id,assessment_id,status").eq("id", data.submissionId).single();
     if (!sub) return { ok: false as const, error: "Envio não encontrado." };
     if (sub.status === "concluida") return { ok: false as const, error: "Esta avaliação já foi enviada." };
-    const { data: qs } = await s.from("questions").select("id,type,points").eq("assessment_id", sub.assessment_id);
+    const { data: qs } = await s.from("questions").select("id,type,points,options").eq("assessment_id", sub.assessment_id);
     const ids = (qs ?? []).map((q) => q.id);
     const { data: keys } = ids.length ? await s.from("answer_keys").select("question_id,correct").in("question_id", ids) : { data: [] };
     let score = 0, max = 0, review = false;
     const rows = (qs ?? []).map((q) => {
       const ans = data.answers[q.id] ?? null;
-      const g = gradeAnswer(q.type as QType, Number(q.points), keys?.find((k) => k.question_id === q.id)?.correct ?? null, ans);
+      const opts = (q.options as { id: string; text: string }[]) ?? [];
+      const g = gradeAnswer(q.type as QType, Number(q.points), keys?.find((k) => k.question_id === q.id)?.correct ?? null, ans, opts);
       if (q.type !== "escala") max += Number(q.points);
       score += g.score_awarded ?? 0;
       review ||= g.needs_review;

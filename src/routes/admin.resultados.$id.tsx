@@ -3,13 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getSubmission, gradeManual } from "@/lib/admin.functions";
+import { getSubmission, gradeManual, regradeSubmission } from "@/lib/admin.functions";
 import { PageHeader, StatusPill, fmtTime, fmtDate } from "@/components/AdminShell";
-import { TYPE_LABEL, QTYPE_LABEL, toTen, textSimilarity } from "@/lib/grading";
+import { TYPE_LABEL, QTYPE_LABEL, toTen, textSimilarity, resolveOptionIds } from "@/lib/grading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle, AlertCircle, ArrowLeft, Save, User, Calendar, Award, Sparkles, Zap } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ArrowLeft, Save, User, Calendar, Award, Sparkles, Zap, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/admin/resultados/$id")({
   head: () => ({
@@ -27,6 +27,7 @@ function SubmissionDetail() {
   const { id } = Route.useParams();
   const getFn = useServerFn(getSubmission);
   const gradeFn = useServerFn(gradeManual);
+  const regradeFn = useServerFn(regradeSubmission);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -36,6 +37,7 @@ function SubmissionDetail() {
 
   const [manualScores, setManualScores] = useState<Record<string, number>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [isRegrading, setIsRegrading] = useState(false);
 
   if (isLoading) return <p className="text-muted-foreground p-8">Carregando envio…</p>;
   if (!data?.submission) return <p className="text-muted-foreground p-8">Envio não encontrado.</p>;
@@ -44,6 +46,20 @@ function SubmissionDetail() {
   const participant = submission.participants as { name: string; class_name: string; entry_date: string } | null;
   const nota10 = toTen(submission.score, submission.max_score);
   const isApproved = nota10 != null && assessment ? nota10 >= Number(assessment.passing_score ?? 6) : null;
+
+  async function handleRegrade() {
+    setIsRegrading(true);
+    try {
+      await regradeFn({ data: { submissionId: id } });
+      qc.invalidateQueries({ queryKey: ["submission", id] });
+      qc.invalidateQueries({ queryKey: ["results"] });
+      toast.success("Notas recalculadas e atualizadas com sucesso!");
+    } catch {
+      toast.error("Erro ao recalcular nota.");
+    } finally {
+      setIsRegrading(false);
+    }
+  }
 
   async function handleGradeQuestion(answerId: string, maxPoints: number) {
     const rawScore = manualScores[answerId];
@@ -78,6 +94,9 @@ function SubmissionDetail() {
         subtitle={`${assessment?.title ?? "Avaliação"} · ${participant?.class_name ?? "Turma"}`}
         actions={
           <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleRegrade} disabled={isRegrading}>
+              <RefreshCw className={`size-4 mr-1.5 ${isRegrading ? "animate-spin" : ""}`} /> Recalcular Nota
+            </Button>
             <StatusPill status={submission.status} />
             {nota10 != null && (
               <span
@@ -191,12 +210,12 @@ function SubmissionDetail() {
                 {isObjective && (
                   <div className="space-y-1.5">
                     {question.options.map((opt) => {
-                      const normAns = Array.isArray(userAns) ? userAns.map((x) => String(x).toLowerCase()) : String(userAns ?? "").toLowerCase();
-                      const normCorr = Array.isArray(correct) ? correct.map((x) => String(x).toLowerCase()) : String(correct ?? "").toLowerCase();
+                      const selectedIds = resolveOptionIds(userAns, question.options);
+                      const correctIds = resolveOptionIds(correct, question.options);
                       const optIdNorm = opt.id.toLowerCase();
 
-                      const isSelected = Array.isArray(normAns) ? normAns.includes(optIdNorm) : normAns === optIdNorm;
-                      const isOptionCorrect = Array.isArray(normCorr) ? normCorr.includes(optIdNorm) : normCorr === optIdNorm;
+                      const isSelected = selectedIds.includes(optIdNorm);
+                      const isOptionCorrect = correctIds.includes(optIdNorm);
 
                       let style = "border-border bg-background";
                       if (isSelected && isOptionCorrect) style = "border-success bg-success/10 text-success font-medium";

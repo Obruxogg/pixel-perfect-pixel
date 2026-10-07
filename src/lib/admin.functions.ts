@@ -2,7 +2,7 @@
 // To add admin auth later, add a middleware to these functions in one place.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { normalizeCode, randomCode, toTen } from "./grading";
+import { normalizeCode, randomCode, toTen, gradeAnswer, type QType } from "./grading";
 
 const db = async () => (await import("@/integrations/supabase/client.server")).supabaseAdmin;
 const uuid = z.string().uuid();
@@ -382,6 +382,64 @@ export const gradeManual = createServerFn({ method: "POST" })
     const total = (all ?? []).reduce((t, x) => t + Number(x.score_awarded ?? 0), 0);
     await s.from("submissions").update({ score: total, needs_review: pending }).eq("id", ans.submission_id);
     return { ok: true };
+  });
+
+export const regradeSubmission = createServerFn({ method: "POST" })
+  .inputValidator((i) => z.object({ submissionId: uuid }).parse(i))
+  .handler(async ({ data }) => {
+    const s = await db();
+    const { data: sub } = await s.from("submissions").select("id,assessment_id").eq("id", data.submissionId).single();
+    if (!sub) throw new Error("Submissão não encontrada");
+
+    const { data: qs } = await s.from("questions").select("id,type,points,options").eq("assessment_id", sub.assessment_id);
+    const qIds = (qs ?? []).map((q) => q.id);
+
+    const [{ data: keys }, { data: userAnswers }] = await Promise.all([
+      qIds.length ? s.from("answer_keys").select("question_id,correct").in("question_id", qIds) : { data: [] },
+      s.from("answers").select("id,question_id,answer").eq("submission_id", sub.id),
+    ]);
+
+    let score = 0;
+    let max = 0;
+    let review = false;
+
+    const updates = (qs ?? []).map((q) => {
+      const existingAns = userAnswers?.find((x) => x.question_id === q.id);
+      const rawAns = existingAns?.answer ?? null;
+      const opts = (q.options as { id: string; text: string }[]) ?? [];
+      const corr = keys?.find((k) => k.question_id === q.id)?.correct ?? null;
+
+      const g = gradeAnswer(q.type as QType, Number(q.points), corr, rawAns, opts);
+
+      if (q.type !== "escala") max += Number(q.points);
+      score += g.score_awarded ?? 0;
+      review ||= g.needs_review;
+
+      return {
+        id: existingAns?.id,
+        submission_id: sub.id,
+        question_id: q.id,
+        answer: rawAns,
+        is_correct: g.is_correct,
+        score_awarded: g.score_awarded,
+      };
+    });
+
+    for (const row of updates) {
+      if (row.id) {
+        await s.from("answers").update({ is_correct: row.is_correct, score_awarded: row.score_awarded }).eq("id", row.id);
+      } else {
+        await s.from("answers").insert({ submission_id: sub.id, question_id: row.question_id, answer: row.answer, is_correct: row.is_correct, score_awarded: row.score_awarded });
+      }
+    }
+
+    await s.from("submissions").update({
+      score: max > 0 ? score : null,
+      max_score: max > 0 ? max : null,
+      needs_review: review,
+    }).eq("id", sub.id);
+
+    return { ok: true, score, max_score: max };
   });
 
 export const getAnalysis = createServerFn({ method: "POST" })
