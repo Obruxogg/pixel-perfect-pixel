@@ -36,6 +36,14 @@ export function parseQuestionsFromText(text: string): ParsedQuestion[] {
     const finalOptions: { id: string; text: string }[] = [];
     let correct: string | string[] | null = null;
 
+    if (currentQ.options.length === 0 && !currentQ.detectedCorrect) {
+      // Ignore header/preamble lines (e.g. "PROVA DE INFORMÁTICA", "Leia atentamente...")
+      const isPreamble = /^(prova|avaliaç[aã]o|teste|simulado|exame|question[aá]rio|atividade|disciplina|professor|aluno|turma|data|nota|leia\s+atentamente|instruç[oõ]es|parte\s+\d+|nível|instruçoes)/i.test(prompt) ||
+        /^\d+\s*quest[oõ]es/i.test(prompt) ||
+        /m[uú]ltipla\s+escolha/i.test(prompt);
+      if (isPreamble) return;
+    }
+
     if (currentQ.options.length > 0) {
       if (currentQ.type === "vf") {
         finalType = "vf";
@@ -105,6 +113,12 @@ export function parseQuestionsFromText(text: string): ParsedQuestion[] {
     }
 
     if (!currentQ) {
+      const isPreambleLine = /^(prova|avaliaç[aã]o|teste|simulado|exame|question[aá]rio|atividade|disciplina|professor|aluno|turma|data|nota|leia\s+atentamente|instruç[oõ]es|parte\s+\d+|nível|instruçoes)/i.test(line) ||
+        /^\d+\s*quest[oõ]es/i.test(line) ||
+        /m[uú]ltipla\s+escolha/i.test(line);
+      if (isPreambleLine) {
+        continue;
+      }
       currentQ = {
         promptLines: [line],
         options: [],

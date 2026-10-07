@@ -101,4 +101,22 @@ describe("DOCX & Text Question Parser", () => {
     expect(g[3]).toEqual({ questionNumber: 4, correct: "Ctrl + C" });
     expect(g[4]).toEqual({ questionNumber: 5, correct: "v" });
   });
+
+  it("ignora cabeçalhos e títulos de documentos para não criar questão falsa #1", () => {
+    const raw = `
+    PROVA DE INFORMÁTICA
+    Nível intermediário • 25 questões
+    Leia atentamente cada questão e marque a alternativa correta.
+    PARTE 1 — MÚLTIPLA ESCOLHA
+
+    1. Qual componente é responsável por executar instruções?
+    a) RAM
+    b) Processador (CPU)*
+    c) HD
+    `;
+    const qs = parseQuestionsFromText(raw);
+    expect(qs.length).toBe(1);
+    expect(qs[0].prompt).toContain("Qual componente é responsável por executar instruções?");
+    expect(qs[0].correct).toBe("b");
+  });
 });
